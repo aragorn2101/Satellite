@@ -1,0 +1,1 @@
+{"access_token": "ACCESS_TOKEN", "expires_in": 600, "refresh_expires_in": 3600, "refresh_token": "REFRESH_TOKEN", "token_type": "Bearer", "not-before-policy": 0, "session_state": "928534e2-d63f-4e73-8046-a852326c13c3", "scope": "AUDIENCE_PUBLIC openid email profile ondemand_processing user-context"}
