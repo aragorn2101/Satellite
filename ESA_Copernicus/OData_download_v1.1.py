@@ -55,6 +55,7 @@ try:
 
 except FileNotFoundError:
     print("Cannot access token file '{:s}'".format(TokenFile))
+    exit(1)
 
 
 
@@ -113,9 +114,18 @@ while (RecordIdx < query_df.shape[0]):
                     if chunk:
                         outFile.write(chunk)
 
+            RecordIdx += 1
+
+        elif (session_res.status_code == 429):  # Rate limiting
+            print("Connection denied due to rate limiting (response status code = 429).")
+            print("Will retry in 60 seconds ...")
+            sleep(60)
+
         else:
-            print("\nSession response status_code: {:d}".format(session_res.status_code))
-            exit(3)
+            print("Session response status_code: {:d}".format(session_res.status_code))
+            print("Session response reason: {:s}".format(session_res.reason))
+            exit(2)
+
 
 
 print()
