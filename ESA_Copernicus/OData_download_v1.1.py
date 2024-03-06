@@ -40,6 +40,7 @@ import pandas as pd
 #  Parameters defining data query
 params_Collect = "SENTINEL-2"
 params_Poly = "58.0586 -19.6394, 58.0586 -20.7519,57.06282 -20.7519,57.06282 -19.6394, 58.0586 -19.6394"
+params_Cloud = "50.00"
 params_StartTime = "2024-02-21T00:00:00.000"
 params_StopTime  = "2024-02-29T23:59:59.999"
 
@@ -60,7 +61,9 @@ except FileNotFoundError:
 ###  BEGIN Query Copernicus database  ###
 
 #  Build URL for query
-url_req  = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value le 50.00) and Collection/Name eq '"
+url_req  = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value le "
+url_req += params_Cloud
+url_req += ") and Collection/Name eq '"
 url_req += params_Collect
 url_req += "' and OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(("
 url_req += params_Poly
@@ -105,12 +108,10 @@ while (RecordIdx < query_df.shape[0]):
 
             print("Downloading {:s}".format(OutFilename))
 
-            """
             with open(OutFilename, 'wb') as outFile:
                 for chunk in session_res.iter_content(chunk_size=8192):
                     if chunk:
                         outFile.write(chunk)
-            """
 
         else:
             print("\nSession response status_code: {:d}".format(session_res.status_code))
