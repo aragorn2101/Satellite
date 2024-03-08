@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-#  Script to query the databases of the Copernicus Dataspace and download
-#  data automatically according to predefined parameters.
+#  Script to download data from the databases of the Copernicus Dataspace using
+#  the OData API.
 #  Version 1.1
 #
 #  Copyright (C) 2024  Nitish Ragoomundun, Mauritius
@@ -25,12 +25,9 @@
 #  1.0: 02.03.2024
 #       * Initial script.
 #
-#  1.1: 03.03.2024
+#  1.1: 03.10.2024
 #       * Loading token from file using the json library and parameterize the
 #         query request URL.
-#
-#  2.0: 08.03.2024
-#       * Refresh token on the fly during downloads.
 #
 
 
@@ -141,49 +138,6 @@ while (RecordIdx < query_df.shape[0]):
                         outFile.write(chunk)
 
             RecordIdx += 1
-
-        elif (session_res.status_code == 401):  # token expired
-
-            ###  BEGIN Refresh token if expired  ###
-            print("\nAccess token expired (response status code = 401)")
-            print("Attempting to refresh the token ...")
-
-            # Command for accessing <identity.dataspace.copernicus.eu>
-            # for refreshing token
-            Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
-
-            # Print original command from Copernicus Dataspace website
-            print("\nUsing the following command:")
-            print(Copernicus_cmd)
-
-            # Split command and run as subprocess to refresh token
-            refresh_res = subprocess.run(shlex.split(Copernicus_cmd), capture_output=True)
-
-            ##  Error resolving host website
-            if (refresh_res.returncode == 6):
-                print("\nError: could not resolve host <identity.dataspace.copernicus.eu>\n")
-                exit(2)
-
-            # Extract output from subprocess' return object (CompletedProcess)
-            print("\nDecoding CompletedProcess.stdout from token request ...")
-            stdout = json.loads( refresh_res.stdout.decode('utf-8') )
-
-            ##  Error in refreshing token
-            if "error" in stdout.keys():
-                print("\nError: {:s}\n".format(stdout['error_description']))
-                exit(3)
-
-            # Write JSON record for token to file
-            print("Writing JSON record for token to file {:s} ...".format(TokenFile))
-            with open(TokenFile, 'w') as f:
-                json.dump(stdout, f)
-
-            ###  END Refresh token if expired  ###
-
-
-            # Reload token into dictionary
-            with open(TokenFile) as f:
-                tkn_dict = json.load(f)
 
         elif (session_res.status_code == 429):  # Rate limiting
             print("Connection denied due to rate limiting (response status code = 429).")
