@@ -32,17 +32,39 @@
 
 
 from os.path import isfile
+from time import sleep
+import shlex
 import json
+import subprocess
 import requests
 import pandas as pd
 
 
-#  Parameters defining data query
+###  BEGIN Set Data Query Parameters  ###
+
+#  Input parameters for querying the database:
+#
+#  params_Collect : name of collection
+#  params_Poly : coordinates of vertices constituting the polygon covering the
+#                Area of Interest
+#  params_StartTime : start date and time of sensing,
+#                     format = "%Y-%m-%dT%H:%M:%S.000"
+#  params_StopTime : end date and time of sensing,
+#                     format = "%Y-%m-%dT%H:%M:%S.000"
+#  params_Cloud : maximum percentage of cloud cover in image
+#  params_MaxRecords : maximum number of records to retrieve from database
+#                      matching the input parameters
+#
+##  Please set the following:
+
 params_Collect = "SENTINEL-2"
-params_Poly = "58.0586 -19.6394, 58.0586 -20.7519,57.06282 -20.7519,57.06282 -19.6394, 58.0586 -19.6394"
-params_Cloud = "50.00"
+params_Poly = "(58.0586 -19.6394, 58.0586 -20.7519,57.06282 -20.7519,57.06282 -19.6394, 58.0586 -19.6394)"
 params_StartTime = "2024-02-21T00:00:00.000"
 params_StopTime  = "2024-02-29T23:59:59.999"
+params_Cloud = "50.00"
+params_MaxRecords = "100"
+
+###  END Set Data Query Parameters  ###
 
 
 #  File containing token as a JSON record
@@ -63,16 +85,17 @@ except FileNotFoundError:
 
 #  Build URL for query
 url_req  = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value le "
-url_req += params_Cloud
+url_req += params_Cloud  # cloud cover
 url_req += ") and Collection/Name eq '"
-url_req += params_Collect
-url_req += "' and OData.CSC.Intersects(area=geography'SRID=4326;POLYGON(("
-url_req += params_Poly
-url_req += "))') and ContentDate/Start gt "
-url_req += params_StartTime
+url_req += params_Collect  # colletion
+url_req += "' and OData.CSC.Intersects(area=geography'SRID=4326;POLYGON("
+url_req += params_Poly  # coordinates for polygon
+url_req += ")') and ContentDate/Start gt "
+url_req += params_StartTime  # sensing time start
 url_req += "Z and ContentDate/Start lt "
-url_req += params_StopTime
-url_req += "Z&$top=100"
+url_req += params_StopTime  # sensing time stop
+url_req += "Z&$top="
+url_req += params_MaxRecords
 
 
 #  Request
