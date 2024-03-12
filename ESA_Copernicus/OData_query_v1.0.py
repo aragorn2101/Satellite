@@ -63,6 +63,39 @@ params_MaxRecords = "100"
 #
 
 
+###  Libraries
+import requests
+import pandas as pd
+
+
+###  BEGIN Query Copernicus database and extract relevant data records ###
+
+# Constitute URL for the query
+url_req  = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value le "
+url_req += params_Cloud  # cloud cover
+url_req += ") and Collection/Name eq '"
+url_req += params_Collect  # colletion
+url_req += "' and OData.CSC.Intersects(area=geography'SRID=4326;POLYGON("
+url_req += params_Poly  # coordinates for polygon
+url_req += ")') and ContentDate/Start gt "
+url_req += params_StartTime  # sensing time start
+url_req += "Z and ContentDate/Start lt "
+url_req += params_StopTime  # sensing time stop
+url_req += "Z&$top="
+url_req += params_MaxRecords
+
+# Send request
+query_res = requests.get( url_req ).json()
+query_df  = pd.DataFrame.from_dict(query_res['value'])
+
+print("\n------------------------------------------------------------------------------")
+print("Output from query:\n")
+print(query_df.info())
+print("------------------------------------------------------------------------------")
+
+###  END Query Copernicus database and extract relevant data records ###
+
+
 
 print()
 exit(0)
