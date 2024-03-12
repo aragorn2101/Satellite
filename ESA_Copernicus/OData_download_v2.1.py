@@ -161,6 +161,12 @@ while (RecordIdx < query_df.shape[0]):
                 if (md5sum != query_md5):
                     print("\n***  Checksum does not match MD5 from query record!")
                     print("***  Error in downloading and/or writing file to disk!")
+                    print("***  Deleting downloaded data for this record ...")
+
+                    rm_res = subprocess.run(['rm', OutFilename])
+                    if (rm_res.returncode != 0):  # if rm command returns error
+                        print("\nrm {:s}".format(OutFilename))
+                        print("Return code: {:d}".format(rm_res.returncode))
                 else:
                     print("Checksum matches MD5 from query record.")
 
