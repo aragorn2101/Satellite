@@ -2,7 +2,7 @@
 #
 #  Script to query the databases of the Copernicus Dataspace and download
 #  data automatically according to predefined parameters.
-#  Version 1.1
+#  Version 2.0
 #
 #  Copyright (C) 2024  Nitish Ragoomundun, Mauritius
 #
@@ -32,6 +32,9 @@
 #  2.0: 08.03.2024
 #       * Refresh token on the fly during downloads.
 #
+#  2.1: 12.03.2024
+#       * Check MD5 checksum after downloading.
+#
 
 
 from os.path import isfile
@@ -40,6 +43,7 @@ import shlex
 import json
 import subprocess
 import requests
+from hashlib import md5
 import pandas as pd
 
 
@@ -130,15 +134,35 @@ while (RecordIdx < query_df.shape[0]):
         session.headers.update( hdrs )
         session_res = session.get(url_data, headers=hdrs, stream=True)
 
+        print("\n------------------------------------------------------------------------------")
+        print("#  Working on record with index  {:2d}".format(RecordIdx))
+        print("#  {:s}".format(OutFilename))
 
         if (session_res.status_code == 200):  # everything ok
-
-            print("Downloading {:s}".format(OutFilename))
 
             with open(OutFilename, 'wb') as outFile:
                 for chunk in session_res.iter_content(chunk_size=8192):
                     if chunk:
                         outFile.write(chunk)
+
+            # Verify MD5 checksum and update log dataframe if everything fine
+            print("Opening downloaded file from disk and verifying MD5 checksum ...")
+            with open(OutFilename, 'rb') as f:
+                rf = f.read()
+
+                # Retrieve MD5 checksum from query records
+                query_md5 = query_df.loc[i, ('Checksum')][0]['Value']
+
+                # Calculate MD5 checksum using hashlib
+                md5sum = md5(rf).hexdigest()
+                print("MD5 checksum = {:s}".format(md5sum))
+
+                # If MD5 do not match the one in the record, delete the bytes downloaded
+                if (md5sum != query_md5):
+                    print("\n***  Checksum does not match MD5 from query record!")
+                    print("***  Error in downloading and/or writing file to disk!")
+                else:
+                    print("Checksum matches MD5 from query record.")
 
             RecordIdx += 1
 
