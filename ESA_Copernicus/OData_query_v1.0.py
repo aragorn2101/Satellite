@@ -97,5 +97,50 @@ print("-------------------------------------------------------------------------
 
 
 
+###  BEGIN Construct output header and records for log file  ###
+
+##  Make log file name
+LogFile  = "OData_"
+LogFile += strftime("%Y%m%d", strptime(params_StartTime, "%Y-%m-%dT%H:%M:%S.000"))
+LogFile += "-"
+LogFile += strftime("%Y%m%d", strptime(params_StopTime, "%Y-%m-%dT%H:%M:%S.999"))
+LogFile += "_query_"
+LogFile += strftime("%Y%m%d_%H%M%S", localtime())
+LogFile += ".log"
+
+
+##  Template for section preceding the CSV section
+log_template = """\
+Collection = {0:s}
+Polygon = {1:s}
+Sensing start = {2:s}
+Sensing stop  = {3:s}
+Cloud cover = {4:s}
+Max records = {5:s}
+---------------------
+{6}"""
+
+
+##  Make dataframe with records for output
+log_df = query_df[['Id', 'Name', 'Checksum', 'Online']]
+
+# Replace the original Checksum data with the value of the MD5 checksum only
+for i in range(log_df.shape[0]):
+    log_df.loc[i, ('Checksum')] = log_df.loc[i, ('Checksum')][0]['Value']
+
+# Insert new column at the end with the default value "False" for 'Downloaded'
+log_df.insert(log_df.shape[1], 'Downloaded', False)
+
+
+print("\n------------------------------------------------------------------------------")
+print("Output to be written to file:\n")
+print(log_df.info())
+print("------------------------------------------------------------------------------")
+
+###  END Construct output header and records for log file  ###
+
+
+
+
 print()
 exit(0)
