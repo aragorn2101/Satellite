@@ -141,6 +141,14 @@ print("-------------------------------------------------------------------------
 
 
 
+###  BEGIN Write output to file  ###
+
+print("\nWriting query parameters and results to file {:s}".format(LogFile))
+with open(LogFile, 'w') as f:
+    f.write(log_template.format(params_Collect, params_Poly, params_StartTime, params_StopTime, params_Cloud, params_MaxRecords, log_df.to_csv(index=False)))
+
+###  END Write output to file  ###
+
 
 print()
 exit(0)
