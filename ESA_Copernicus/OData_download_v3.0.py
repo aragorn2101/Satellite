@@ -79,14 +79,16 @@ except FileNotFoundError:
 
 #  Retrieve header
 with open(LogFile) as f:
+    count_hdr = 0
     line = ""
     log_hdr = ""
     while line != "---------------------\n":
         log_hdr += line
         line = f.readline()
+        count_hdr += 1
 
 #  Load records into dataframe
-log_df = pd.read_csv(LogFile, skiprows=7)
+log_df = pd.read_csv(LogFile, skiprows=count_hdr)
 
 ###  END Open log file, parse header and load records in dataframe  ###
 
