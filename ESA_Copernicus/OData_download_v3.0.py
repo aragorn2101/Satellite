@@ -46,6 +46,7 @@
 from sys import argv
 from os.path import isfile
 import shlex
+from time import sleep
 import json
 import subprocess
 import requests
@@ -156,6 +157,11 @@ try:
 
                     print("\nDownloading ...")
 
+                    with open(OutFile, 'wb') as f:
+                        for chunk in session_res.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+
                     # Update log dataframe
                     log_df.loc[RecordIdx, 'Downloaded'] = True
 
@@ -196,6 +202,11 @@ try:
                     # Reload token into dictionary
                     with open(TokenFile) as f:
                         tkn_dict = json.load(f)
+
+                elif (session_res.status_code == 429):  # Rate limiting
+                    print("Connection denied due to rate limiting (response status code = 429).")
+                    print("Will retry in 60 seconds ...")
+                    sleep(60)
 
                 else:
                     print("\nSession response status_code: {:d}".format(session_res.status_code))
