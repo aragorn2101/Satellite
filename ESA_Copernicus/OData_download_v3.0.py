@@ -45,7 +45,9 @@
 
 from sys import argv
 from os.path import isfile
+import shlex
 import json
+import subprocess
 import requests
 import pandas as pd
 
@@ -83,6 +85,14 @@ try:
     with open(TokenFile) as f:
         tkn_dict = json.load(f)
 
+    # Build header using token for session request
+    hdrs = { "Authorization" : "Bearer {:s}".format(tkn_dict['access_token']) }
+
+
+    # Command for accessing <identity.dataspace.copernicus.eu> in case token
+    # needs refreshing
+    Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
+
 except FileNotFoundError:
     print("Cannot access token file '{:s}'".format(TokenFile))
     exit(3)
@@ -114,59 +124,101 @@ log_template = """\
 {1}"""
 
 
-###  BEGIN LOOP through records and download  ###
-RecordIdx = 0
-while (RecordIdx < log_df.shape[0]):
-    # Check if file has already been downloaded, according to the log
-    if (log_df.loc[RecordIdx, 'Downloaded'] == True):
-        RecordIdx += 1
-
-    else:
-        # File name for data
-        OutFile = log_df.loc[RecordIdx, 'Name'] + ".zip"
-
-        print("\n------------------------------------------------------------------------------")
-        print("#  Working on record with index {:3d}".format(RecordIdx))
-        print("#  {:s}".format(OutFile))
-
-        # Download if data is found online and hasn't been downloaded yet
-        if (log_df.loc[RecordIdx, 'Online'] == True and log_df.loc[RecordIdx, 'Downloaded'] == False):
-
-            # Build URL for data product
-            url_data = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({:s})/$value".format( log_df.loc[RecordIdx, 'Id'] )
-
-            # Build header using token
-            hdrs = { "Authorization" : "Bearer {:s}".format(tkn_dict['access_token']) }
-
-            # Open session and request data download
-            session = requests.Session()
-            session.headers.update( hdrs )
-            session_res = session.get(url_data, headers=hdrs, stream=True)
-
-            if (session_res.status_code == 200):  # everything ok
-
-                print("\nDownloading ...")
-
-                # Update log dataframe
-                log_df.loc[RecordIdx, 'Downloaded'] = True
-                RecordIdx += 1
-
-            else:
-                print("\nSession response status_code: {:d}".format(session_res.status_code))
-                print("Session response reason: {:s}".format(session_res.reason))
-                RecordIdx += 1
-
-        else:  # log_df['Online'] = False
-            print("Data not found online!")
+try:
+    ###  BEGIN LOOP through records and download  ###
+    RecordIdx = 0
+    while (RecordIdx < log_df.shape[0]):
+        # Check if file has already been downloaded, according to the log
+        if (log_df.loc[RecordIdx, 'Downloaded'] == True):
             RecordIdx += 1
 
-###  END LOOP through records and download  ###
+        else:
+            # Output file name for data
+            OutFile = log_df.loc[RecordIdx, 'Name'] + ".zip"
 
-print("\n------------------------------------------------------------------------------")
-print("# Updating log file {:s} ...".format(LogFile))
-with open(LogFile, 'w') as f:
-    f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
+            print("\n------------------------------------------------------------------------------")
+            print("#  Working on record with index {:3d}".format(RecordIdx))
+            print("#  {:s}".format(log_df.loc[RecordIdx, 'Id']))
+            print("#  {:s}".format(OutFile))
+
+            # Download if data is found online and hasn't been downloaded yet
+            if (log_df.loc[RecordIdx, 'Online'] == True and log_df.loc[RecordIdx, 'Downloaded'] == False):
+
+                # Build URL for data product
+                url_data = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({:s})/$value".format( log_df.loc[RecordIdx, 'Id'] )
+
+                # Open session and request data download
+                session = requests.Session()
+                session.headers.update( hdrs )
+                session_res = session.get(url_data, headers=hdrs, stream=True)
+
+                if (session_res.status_code == 200):  # everything ok
+
+                    print("\nDownloading ...")
+
+                    # Update log dataframe
+                    log_df.loc[RecordIdx, 'Downloaded'] = True
+
+                    RecordIdx += 1
+
+                elif (session_res.status_code == 401):  # token expired
+
+                    ###  BEGIN Refresh token if expired  ###
+
+                    print("\nAccess token expired (response status code = 401)")
+                    print("Attempting to refresh the token ...")
+
+                    # Split command and run as subprocess to refresh token
+                    refresh_res = subprocess.run(shlex.split(Copernicus_cmd), capture_output=True)
+
+                    ##  Error resolving host website
+                    if (refresh_res.returncode == 6):
+                        print("\nError: could not resolve host <identity.dataspace.copernicus.eu>\n")
+                        raise RuntimeError
+
+                    # If ok, extract output from subprocess' return object (CompletedProcess)
+                    print("Decoding CompletedProcess.stdout from token request ...")
+                    stdout = json.loads( refresh_res.stdout.decode('utf-8') )
+
+                    ##  Error in refreshing token
+                    if "error" in stdout.keys():
+                        print("\nError: {:s}\n".format(stdout['error_description']))
+                        raise RuntimeError
+
+                    # Write JSON record for token to file
+                    print("Writing JSON record for token to file {:s} ...".format(TokenFile))
+                    with open(TokenFile, 'w') as f:
+                        json.dump(stdout, f)
+
+                    ###  END Refresh token if expired  ###
 
 
-print()
-exit(0)
+                    # Reload token into dictionary
+                    with open(TokenFile) as f:
+                        tkn_dict = json.load(f)
+
+                else:
+                    print("\nSession response status_code: {:d}".format(session_res.status_code))
+                    print("Session response reason: {:s}".format(session_res.reason))
+                    RecordIdx += 1
+
+            else:  # log_df['Online'] = False
+                print("Data not found online!")
+                RecordIdx += 1
+
+    ###  END LOOP through records and download  ###
+
+    print("\n------------------------------------------------------------------------------")
+    print("# Updating log file {:s} ...".format(LogFile))
+    with open(LogFile, 'w') as f:
+        f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
+
+    print()
+    exit(0)
+
+except RuntimeError:
+    print("# Updating log file {:s} and exiting.".format(LogFile))
+    with open(LogFile, 'w') as f:
+        f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
+    print()
+    exit(4)
