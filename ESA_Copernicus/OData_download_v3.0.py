@@ -101,6 +101,26 @@ except FileNotFoundError:
 ###  END Parsing of command line arguments and load Token file  ###
 
 
+###  BEGIN Define custom exceptions  ###
+
+class MD5SumError(Exception):
+    pass
+
+class TokenExpiredError(Exception):
+    pass
+
+class TokenRefreshError(Exception):
+    pass
+
+class RateLimitError(Exception):
+    pass
+
+class SessionError(Exception):
+    pass
+
+###  END Define custom exceptions  ###
+
+
 ###  BEGIN Open log file, parse header and load records in dataframe  ###
 
 #  Retrieve header
