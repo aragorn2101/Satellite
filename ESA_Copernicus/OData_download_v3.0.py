@@ -90,7 +90,6 @@ try:
     # Build header using token for session request
     hdrs = { "Authorization" : "Bearer {:s}".format(tkn_dict['access_token']) }
 
-
     # Command for accessing <identity.dataspace.copernicus.eu> in case token
     # needs refreshing
     Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
@@ -220,9 +219,19 @@ try:
                     ###  END Refresh token if expired  ###
 
 
-                    # Reload token into dictionary
+                    ###  BEGIN Reload token into dictionary and re-initialize a few things  ###
+
                     with open(TokenFile) as f:
                         tkn_dict = json.load(f)
+
+                    # Re-build header using token for session request
+                    hdrs = { "Authorization" : "Bearer {:s}".format(tkn_dict['access_token']) }
+
+                    # Command for accessing <identity.dataspace.copernicus.eu> in case token
+                    # needs refreshing
+                    Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
+
+                    ###  END Reload token into dictionary and re-initialize a few things  ###
 
                 elif (session_res.status_code == 429):  # Rate limiting
                     print("Connection denied due to rate limiting (response status code = 429).")
