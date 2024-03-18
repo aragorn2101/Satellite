@@ -50,6 +50,7 @@ from time import sleep
 import json
 import subprocess
 import requests
+from hashlib import md5
 import pandas as pd
 
 
@@ -119,6 +120,7 @@ log_df = pd.read_csv(LogFile, skiprows=count_hdr)
 ###  END Open log file, parse header and load records in dataframe  ###
 
 
+
 #  Template for writing preamble into log CSV file
 log_template = """\
 {0}---------------------
@@ -157,13 +159,32 @@ try:
 
                     print("\nDownloading ...")
 
+                    # Download file by progressively and write to file
                     with open(OutFile, 'wb') as f:
                         for chunk in session_res.iter_content(chunk_size=8192):
                             if chunk:
                                 f.write(chunk)
 
-                    # Update log dataframe
-                    log_df.loc[RecordIdx, 'Downloaded'] = True
+                    # Verify MD5 checksum and update log dataframe if everything fine
+                    print("Opening downloaded file from disk and verifying MD5 checksum ...")
+                    with open(OutFile, 'rb') as f:
+                        rf = f.read()
+                        md5sum = md5(rf).hexdigest()
+                        print("MD5 checksum = {:s}".format(md5sum))
+
+                        # If MD5 do not match the one in the record, delete the bytes downloaded
+                        if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
+                            print("\n***  Checksum does not match MD5 from query record!")
+                            print("***  Error in downloading and/or writing file to disk!")
+                            print("***  Deleting downloaded data for this record and skipping it ...")
+
+                            rm_res = subprocess.run(['rm', OutFile])
+                            if (rm_res.returncode != 0):  # if rm command returns error
+                                print("\nrm {:s}".format(OutFile))
+                                print("Return code: {:d}".format(rm_res.returncode))
+                        else:
+                            print("Checksum matches MD5 from query record. Updating log dataframe ...")
+                            log_df.loc[RecordIdx, 'Downloaded'] = True
 
                     RecordIdx += 1
 
@@ -206,7 +227,7 @@ try:
                 elif (session_res.status_code == 429):  # Rate limiting
                     print("Connection denied due to rate limiting (response status code = 429).")
                     print("Will retry in 60 seconds ...")
-                    sleep(60)
+                    sleep(61)
 
                 else:
                     print("\nSession response status_code: {:d}".format(session_res.status_code))
@@ -214,7 +235,7 @@ try:
                     RecordIdx += 1
 
             else:  # log_df['Online'] = False
-                print("Data not found online!")
+                print("\nNOTE: data not found online!")
                 RecordIdx += 1
 
     ###  END LOOP through records and download  ###
