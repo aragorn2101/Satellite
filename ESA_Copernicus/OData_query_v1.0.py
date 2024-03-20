@@ -2,7 +2,7 @@
 #
 #  Script to query the databases of the Copernicus Dataspace and output the
 #  resulting records to a log file.
-#  Version 1.0
+#  Version 1.1
 #
 #  Copyright (C) 2024  Nitish Ragoomundun, Mauritius
 #
@@ -42,8 +42,8 @@
 
 params_Collect = "SENTINEL-2"
 params_Poly = "(58.0586 -19.6394, 58.0586 -20.7519,57.06282 -20.7519,57.06282 -19.6394, 58.0586 -19.6394)"
-params_StartTime = "2024-03-07T00:00:00.000"
-params_StopTime  = "2024-03-09T23:59:59.999"
+params_StartTime = "2023-04-01T00:00:00.000"
+params_StopTime  = "2023-04-30T23:59:59.999"
 params_Cloud = "50.00"
 params_MaxRecords = "100"
 
@@ -64,8 +64,10 @@ params_MaxRecords = "100"
 
 
 ###  Libraries
+from time import localtime, strptime, strftime
 import requests
 import pandas as pd
+
 
 
 ###  BEGIN Query Copernicus database and extract relevant data records ###
@@ -126,7 +128,11 @@ log_df = query_df[['Id', 'Name', 'Checksum', 'Online']]
 
 # Replace the original Checksum data with the value of the MD5 checksum only
 for i in range(log_df.shape[0]):
-    log_df.loc[i, ('Checksum')] = log_df.loc[i, ('Checksum')][0]['Value']
+    if (log_df.loc[i, ('Checksum')][0] == {}):
+        log_df.loc[i, ('Checksum')] = "None"
+    else:
+        log_df.loc[i, ('Checksum')] = log_df.loc[i, ('Checksum')][0]['Value']
+
 
 # Insert new column at the end with the default value "False" for 'Downloaded'
 log_df.insert(log_df.shape[1], 'Downloaded', False)
