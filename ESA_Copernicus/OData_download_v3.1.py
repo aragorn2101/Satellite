@@ -158,6 +158,8 @@ while (RecordIdx < log_df.shape[0]):
             RecordIdx += 1
 
         else:
+            ###  BEGIN ELSE 'Downloaded' == False  ###
+
             # Output file name for data
             OutFile = log_df.loc[RecordIdx, 'Name'] + ".zip"
 
@@ -171,7 +173,7 @@ while (RecordIdx < log_df.shape[0]):
                 RecordIdx += 1
 
             else:
-                ###  BEGIN Data found online  ###
+                ###  BEGIN ELSE 'Online' == True  ###
 
                 # Build URL for data product
                 url_data = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({:s})/$value".format( log_df.loc[RecordIdx, 'Id'] )
@@ -196,10 +198,44 @@ while (RecordIdx < log_df.shape[0]):
 
                     ###  END Download file and write bytes to file  ###
 
+
+                    ###  BEGIN Verify download using MD5 checksum  ###
+
+                    print("Opening downloaded file from disk and verifying MD5 checksum ...")
+                    with open(OutFile, 'rb') as f:
+                        rf = f.read()
+                        md5sum = md5(rf).hexdigest()
+                        print("MD5 checksum = {:s}".format(md5sum))
+
+                        # If MD5 do not match the one in the record, delete the bytes downloaded
+                        if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
+                            raise MD5SumError
+
+                        else:  # if everything OK
+                            print("Checksum matches MD5 from query record. Updating log dataframe ...")
+                            log_df.loc[RecordIdx, 'Downloaded'] = True
+                            RecordIdx += 1
+
+                    ###  END Verify download using MD5 checksum  ###
+
                 else:
                     raise SessionError
 
-                ###  END Data found online  ###
+                ###  END ELSE 'Online' == True  ###
+
+            ###  END ELSE 'Downloaded' == False  ###
+
+    except MD5SumError:
+        print("\n***  Checksum does not match MD5 from query record!")
+        print("***  Error in downloading and/or writing file to disk!")
+        print("***  Deleting downloaded data for this record and skipping it ...")
+
+        rm_res = subprocess.run(['rm', OutFile])
+        if (rm_res.returncode != 0):  # if rm command returns error
+            print("\nrm {:s}".format(OutFile))
+            print("Return code: {:d}".format(rm_res.returncode))
+
+        RecordIdx += 1
 
     except SessionError:
         print("\nSession response status_code: {:d}".format(session_res.status_code))
