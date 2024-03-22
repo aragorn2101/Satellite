@@ -21,6 +21,11 @@
 #
 # -----------------------------------------------------------------------------
 #
+#  Changelog:
+#  1.1: 20.03.2024
+#       * When MD5 is not available from query output a series of '-'.
+#
+#
 
 ###  BEGIN Set Data Query Parameters  ###
 
@@ -42,8 +47,8 @@
 
 params_Collect = "SENTINEL-2"
 params_Poly = "(58.0586 -19.6394, 58.0586 -20.7519,57.06282 -20.7519,57.06282 -19.6394, 58.0586 -19.6394)"
-params_StartTime = "2023-04-01T00:00:00.000"
-params_StopTime  = "2023-04-30T23:59:59.999"
+params_StartTime = "2021-08-01T00:00:00.000"
+params_StopTime  = "2021-08-31T23:59:59.999"
 params_Cloud = "50.00"
 params_MaxRecords = "100"
 
@@ -126,10 +131,13 @@ Max records = {5:s}
 ##  Make dataframe with records for output
 log_df = query_df[['Id', 'Name', 'Checksum', 'Online']]
 
+
 # Replace the original Checksum data with the value of the MD5 checksum only
 for i in range(log_df.shape[0]):
-    if (log_df.loc[i, ('Checksum')][0] == {}):
-        log_df.loc[i, ('Checksum')] = "None"
+    if (log_df.loc[i, ('Checksum')] == []):  # if MD5 not available
+        log_df.loc[i, ('Checksum')] = "--------------------------------"
+    elif (log_df.loc[i, ('Checksum')][0] == {}):
+        log_df.loc[i, ('Checksum')] = "--------------------------------"
     else:
         log_df.loc[i, ('Checksum')] = log_df.loc[i, ('Checksum')][0]['Value']
 
