@@ -78,12 +78,10 @@ except OSError:
     print("Usage: {:s} ODATA_QUERY_LOG".format(argv[0]))
     print("The file ODATA_QUERY_LOG is a log file output by the OData_query.py script.")
     print("The basic format of this input file is CSV with a few lines for preamble")
-    print("where the database query parameters are specified.")
-    print()
+    print("where the database query parameters are specified.\n")
     exit(1)
 except FileNotFoundError:
-    print("Cannot access {:s}!".format(argv[1]))
-    print()
+    print("Cannot access {:s}!\n".format(argv[1]))
     exit(2)
 
 # Token file
@@ -160,10 +158,53 @@ while (RecordIdx < log_df.shape[0]):
             RecordIdx += 1
 
         else:
+            # Output file name for data
+            OutFile = log_df.loc[RecordIdx, 'Name'] + ".zip"
+
+            print("\n------------------------------------------------------------------------------")
+            print("#  Working on record with index {:3d}".format(RecordIdx))
+            print("#  {:s}".format(log_df.loc[RecordIdx, 'Id']))
+            print("#  {:s}".format(OutFile))
+
+            if (log_df.loc[RecordIdx, 'Online'] == False):
+                print("\n***  NOTE: data not found online!")
+                RecordIdx += 1
+
+            else:
+                ###  BEGIN Data found online  ###
+
+                # Build URL for data product
+                url_data = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({:s})/$value".format( log_df.loc[RecordIdx, 'Id'] )
+
+                # Open session and request data download
+                session = requests.Session()
+                session.headers.update( hdrs )
+                session_res = session.get(url_data, headers=hdrs, stream=True)
 
 
-    except:
+                ##  If everything OK
+                if (session_res.status_code == 200):
 
+                    ###  BEGIN Download file and write bytes to file  ###
+
+                    print("\nDownloading ...")
+
+                    with open(OutFile, 'wb') as f:
+                        for chunk in session_res.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+
+                    ###  END Download file and write bytes to file  ###
+
+                else:
+                    raise SessionError
+
+                ###  END Data found online  ###
+
+    except SessionError:
+        print("\nSession response status_code: {:d}".format(session_res.status_code))
+        print("Session response reason: {:s}".format(session_res.reason))
+        exit(4)
 
 ###  END LOOP over records and download  ###
 
