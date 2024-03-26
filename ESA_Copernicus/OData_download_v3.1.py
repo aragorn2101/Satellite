@@ -2,7 +2,7 @@
 #
 #  Script to download data from the Copernicus Dataspace Ecosystem
 #  (https://dataspace.copernicus.eu/).
-#  Version 3.0
+#  Version 3.1
 #
 #  Copyright (C) 2024  Nitish Ragoomundun, Mauritius
 #
@@ -218,6 +218,9 @@ while (RecordIdx < log_df.shape[0]):
 
                     ###  END Verify download using MD5 checksum  ###
 
+                elif (session_res.status_code == 401):  # token expired
+                    raise TokenExpiredError
+
                 else:
                     raise SessionError
 
@@ -236,6 +239,65 @@ while (RecordIdx < log_df.shape[0]):
             print("Return code: {:d}".format(rm_res.returncode))
 
         RecordIdx += 1
+
+    except TokenExpiredError:
+
+        ###  BEGIN Refresh token if expired  ###
+        try:
+
+            print("\nAccess token expired (response status code = 401)")
+            print("Attempting to refresh the token ...")
+
+            # Split command and run as subprocess to refresh token
+            refresh_res = subprocess.run(shlex.split(Copernicus_cmd), capture_output=True)
+
+            ##  Error resolving host website
+            if (refresh_res.returncode == 6):
+                print("\n***  Error: could not resolve host <identity.dataspace.copernicus.eu>")
+                print("***  Please fix the issue and re-run the script.")
+                raise TokenRefreshError
+
+            else:
+
+                # If ok, extract output from subprocess' return object (CompletedProcess)
+                print("Decoding CompletedProcess.stdout from token request ...")
+                stdout = json.loads( refresh_res.stdout.decode('utf-8') )
+
+                ##  Error in refreshing token
+                if "error" in stdout.keys():
+                    print("\n***  Error: {:s}".format(stdout['error_description']))
+                    print("***  Please resolve the issue and re-run the script.")
+                    raise TokenRefreshError
+
+                else:  #  Success in refreshing token
+
+                    # Write JSON record for token to file
+                    print("Writing JSON record for token to file {:s} ...".format(TokenFile))
+                    with open(TokenFile, 'w') as f:
+                        json.dump(stdout, f)
+
+
+                    ###  BEGIN Reload token into dictionary and re-initialize a few things  ###
+
+                    with open(TokenFile) as f:
+                        tkn_dict = json.load(f)
+
+                    # Re-build header using token for session request
+                    hdrs = { "Authorization" : "Bearer {:s}".format(tkn_dict['access_token']) }
+
+                    # Command for accessing <identity.dataspace.copernicus.eu> in case token
+                    # needs refreshing
+                    Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
+
+                    ###  END Reload token into dictionary and re-initialize a few things  ###
+
+        except TokenRefreshError:
+            print("\n# Updating log file {:s} and exiting.\n".format(LogFile))
+            with open(LogFile, 'w') as f:
+                f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
+            exit(2)
+
+        ###  END Refresh token if expired  ###
 
     except SessionError:
         print("\nSession response status_code: {:d}".format(session_res.status_code))
