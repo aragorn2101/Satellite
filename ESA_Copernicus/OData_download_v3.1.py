@@ -221,6 +221,9 @@ while (RecordIdx < log_df.shape[0]):
                 elif (session_res.status_code == 401):  # token expired
                     raise TokenExpiredError
 
+                elif (session_res.status_code == 429):  # Rate limiting
+                    raise RateLimitError
+
                 else:
                     raise SessionError
 
@@ -298,6 +301,12 @@ while (RecordIdx < log_df.shape[0]):
             exit(2)
 
         ###  END Refresh token if expired  ###
+
+
+    except RateLimitError:
+        print("Connection denied due to rate limiting (response status code = 429).")
+        print("Will retry in 60 seconds ...")
+        sleep(61)
 
     except SessionError:
         print("\nSession response status_code: {:d}".format(session_res.status_code))
