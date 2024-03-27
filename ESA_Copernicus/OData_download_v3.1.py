@@ -46,22 +46,16 @@
 #         file is updated even if an unknown error occurs.
 #
 #
-#  Usage: ./OData_download_vx.x.py LOGFILE
+#  Usage: ./OData_download_vx.x.py INPUTLOGFILE
 #
 #  Exit status:
 #      0      if OK,
-#
 #      1      no argument was given on the command line,
-#
 #      2      cannot access log file passed to script,
-#
 #      3      cannot access file containing token,
-#
 #      4      could not refresh token on the fly,
-#
 #      5      session error while requesting download (session response status
 #             code not in set {200, 401, 429}),
-#
 #      6      error outside of exceptions defined in script.
 #
 
@@ -315,6 +309,7 @@ while (RecordIdx < log_df.shape[0]):
                     Copernicus_cmd = "curl -d 'grant_type=refresh_token' -d 'refresh_token={:s}' -d 'client_id=cdse-public' 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token'".format(tkn_dict['refresh_token'])
 
                     ###  END Reload token into dictionary and re-initialize a few things  ###
+
 
         except TokenRefreshError:
             print("\n# Updating log file {:s} and exiting.\n".format(LogFile))
