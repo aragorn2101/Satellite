@@ -45,6 +45,25 @@
 #       * Handle errors and other issues as custom exceptions and ensure log
 #         file is updated even if an unknown error occurs.
 #
+#
+#  Usage: ./OData_download_vx.x.py LOGFILE
+#
+#  Exit status:
+#      0      if OK,
+#
+#      1      no argument was given on the command line,
+#
+#      2      cannot access log file passed to script,
+#
+#      3      cannot access file containing token,
+#
+#      4      could not refresh token on the fly,
+#
+#      5      session error while requesting download (session response status
+#             code not in set {200, 401, 429}),
+#
+#      6      error outside of exceptions defined in script.
+#
 
 
 from sys import argv
