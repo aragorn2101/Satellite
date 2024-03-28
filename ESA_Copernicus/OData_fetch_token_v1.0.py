@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-#  Script to fetch a fresh token for the OData API of the Copernicus Dataspace
-#  Ecosystem
+#  Script to fetch a fresh token for the OData API of the
+#  Copernicus Dataspace Ecosystem
 #  Version 1.0
 #
 #  Copyright (C) 2024  Nitish Ragoomundun, Mauritius
@@ -30,7 +30,7 @@ import json
 
 ###  BEGIN Check if token file exists for output and construct cURL command  ###
 
-#  Username and password on the Copernicus Dataspace
+#  Username and password of the Copernicus Dataspace account
 Username = ""  ## PLEASE ADD USERNAME STRING
 Password = ""  ## PLEASE ADD PASSWORD STRING
 

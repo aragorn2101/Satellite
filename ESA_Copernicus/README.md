@@ -30,6 +30,17 @@ As output, the script writes a log file which consists of a header listing the i
 OData_{params_StartTime}_{params_StopTime}_query_{querying_Time}.log
 ```
 
+
+## OData_fetch_token_v1.0.py
+Prior to starting any data download through the OData API, we need to fetch an access token. This script takes as input the username and password of a user and request a token from the OData online interface. The user needs to set the username and password in the preamble of the script:
+```
+#  Username and password of the Copernicus Dataspace account
+Username = ""  ## PLEASE ADD USERNAME STRING
+Password = ""  ## PLEASE ADD PASSWORD STRING
+```
+The token is in the form of a JSON record which is written to a file called `CopernicusDataspace_token.json`.
+
+
 ## OData_download_v3.1.py
 
 This script downloads data in batch. It takes as input the log file written by the `OData_query` script. Download sessions using the OData API are initiated using a token. This token is stored in a file called `CopernicusDataspace_token.json`, which is loaded at runtime. The download links are constructed using the file IDs stored in the log file. Once downloaded, the data integrity of every file is verified using the MD5 checksum. If everything is fine, the `'Downloaded'` column in the log dataframe is updated. The script handles many of the possible exceptions and in all cases updates the dataframe and writes it out to the log file before exiting.
