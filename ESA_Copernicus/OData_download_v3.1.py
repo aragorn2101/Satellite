@@ -207,10 +207,12 @@ while (RecordIdx < log_df.shape[0]):
 
                     print("\nDownloading ...")
 
+                    """
                     with open(OutFile, 'wb') as f:
                         for chunk in session_res.iter_content(chunk_size=8192):
                             if chunk:
                                 f.write(chunk)
+                    """
 
                     ###  END Download file and write bytes to file  ###
 
@@ -388,9 +390,9 @@ while (RecordIdx < log_df.shape[0]):
 
 
 print("\n------------------------------------------------------------------------------")
-print("# Downloads complete. Updating log file {:s} ...".format(LogFile))
+print("# Downloads complete.")
+print("# Updating log file {:s} and exiting.\n".format(LogFile))
 with open(LogFile, 'w') as f:
     f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
 
-print()
 exit(0)
