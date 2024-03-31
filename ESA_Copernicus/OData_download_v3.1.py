@@ -50,13 +50,13 @@
 #
 #  Exit status:
 #      0      if OK,
-#      1      no argument was given on the command line,
+#      1      no argument was passed on the command line,
 #      2      cannot access log file passed to script,
 #      3      cannot access file containing token,
 #      4      could not refresh token on the fly,
 #      5      session error while requesting download (session response status
-#             code not in set {200, 401, 429}),
-#      6      error outside of exceptions defined in script.
+#             code not in set: {200, 401, 429}),
+#      6      error outside of exceptions handled in script.
 #
 
 
@@ -171,9 +171,8 @@ while (RecordIdx < log_df.shape[0]):
         if (log_df.loc[RecordIdx, 'Downloaded'] == True):
             RecordIdx += 1
 
+        ###  BEGIN ELSE 'Downloaded' = False  ###
         else:
-            ###  BEGIN ELSE 'Downloaded' == False  ###
-
             # Output file name for data
             OutFile = log_df.loc[RecordIdx, 'Name'] + ".zip"
 
@@ -182,12 +181,15 @@ while (RecordIdx < log_df.shape[0]):
             print("#  {:s}".format(log_df.loc[RecordIdx, 'Id']))
             print("#  {:s}".format(OutFile))
 
+
             if (log_df.loc[RecordIdx, 'Online'] == False):
                 print("\n***  NOTE: data not found online!")
                 RecordIdx += 1
 
+
+            ###  BEGIN ELSE 'Online' = True  ###
+            # Download if data is found online and hasn't been downloaded yet
             else:
-                ###  BEGIN ELSE 'Online' == True  ###
 
                 # Build URL for data product
                 url_data = "https://zipper.dataspace.copernicus.eu/odata/v1/Products({:s})/$value".format( log_df.loc[RecordIdx, 'Id'] )
@@ -215,20 +217,27 @@ while (RecordIdx < log_df.shape[0]):
 
                     ###  BEGIN Verify download using MD5 checksum  ###
 
-                    print("Opening downloaded file from disk and verifying MD5 checksum ...")
-                    with open(OutFile, 'rb') as f:
-                        rf = f.read()
-                        md5sum = md5(rf).hexdigest()
-                        print("MD5 checksum = {:s}".format(md5sum))
+                    # If MD5 is not available, move on else, check
+                    if (log_df.loc[RecordIdx, 'Checksum'] == "--------------------------------"):
+                        print("**  Cannot verify data integrity since MD5 not available for this record.")
+                        print("Marking as \'Downloaded\' and moving on.")
+                        log_df.loc[RecordIdx, 'Downloaded'] = True
+                        RecordIdx += 1
+                    else:
+                        print("Opening downloaded file from disk and verifying MD5 checksum ...")
+                        with open(OutFile, 'rb') as f:
+                            rf = f.read()
+                            md5sum = md5(rf).hexdigest()
+                            print("MD5 checksum = {:s}".format(md5sum))
 
-                        # If MD5 do not match the one in the record, delete the bytes downloaded
-                        if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
-                            raise MD5SumError
+                            # If MD5 do not match the one in the record, delete the bytes downloaded
+                            if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
+                                raise MD5SumError
 
-                        else:  # if everything OK
-                            print("Checksum matches MD5 from query record. Updating log dataframe ...")
-                            log_df.loc[RecordIdx, 'Downloaded'] = True
-                            RecordIdx += 1
+                            else:  # if everything OK
+                                print("Checksum matches MD5 from query record. Updating log dataframe ...")
+                                log_df.loc[RecordIdx, 'Downloaded'] = True
+                                RecordIdx += 1
 
                     ###  END Verify download using MD5 checksum  ###
 
@@ -241,12 +250,10 @@ while (RecordIdx < log_df.shape[0]):
                 else:
                     raise SessionError
 
-                ###  END ELSE 'Online' == True  ###
+            ###  END ELSE 'Online' = True  ###
 
-            ###  END ELSE 'Downloaded' == False  ###
+        ###  END ELSE 'Downloaded' = False  ###
 
-
-    ###  BEGIN Handle error if MD5 mismatch  ###
     except MD5SumError:
         print("\n***  Checksum does not match MD5 from query record!")
         print("***  Error in downloading and/or writing file to disk!")
@@ -259,12 +266,11 @@ while (RecordIdx < log_df.shape[0]):
 
         RecordIdx += 1
 
-    ###  END Handle error if MD5 mismatch  ###
-
-
-    ###  BEGIN Refresh token if expired  ###
     except TokenExpiredError:
+
+        ###  BEGIN Refresh token if expired  ###
         try:
+
             print("\nAccess token expired (response status code = 401)")
             print("Attempting to refresh the token ...")
 
@@ -311,14 +317,13 @@ while (RecordIdx < log_df.shape[0]):
 
                     ###  END Reload token into dictionary and re-initialize a few things  ###
 
-
         except TokenRefreshError:
             print("\n# Updating log file {:s} and exiting.\n".format(LogFile))
             with open(LogFile, 'w') as f:
                 f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
             exit(4)
 
-    ###  END Refresh token if expired  ###
+        ###  END Refresh token if expired  ###
 
 
     except RateLimitError:
@@ -335,31 +340,48 @@ while (RecordIdx < log_df.shape[0]):
     ###  BEGIN Handle all exceptions and delete file if incomplete download  ###
     except:
         print("\n***  Unknown error or keyboard interrupt!")
-        print("***  If there was a traceback output above, please fix the issue the re-run this")
+        print("***  If there is a traceback output above, please fix the issue the re-run this")
         print("***  script.")
 
-        print("\nVerifying last download using MD5 checksum ...")
-        with open(OutFile, 'rb') as f:
-            rf = f.read()
-            md5sum = md5(rf).hexdigest()
-            print("MD5 checksum = {:s}".format(md5sum))
-
-            # If MD5 do not match the one in the record, delete the bytes downloaded
-            if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
-                print("\n***  Checksum does not match MD5 from query recorda!")
-                print("***  Incomplete download!")
-                print("***  Removing file {:s} ...".format(OutFile))
+        # Check if file has been created already and proceed accordingly
+        if isfile(OutFile):
+            if (log_df.loc[RecordIdx, 'Checksum'] == "--------------------------------"):
+                print("***  Cannot verify data integrity since MD5 not available for this record.")
+                print("***  Since script was interrupted, as a precaution, we will be removing file")
+                print("{:s} ...".format(OutFile))
                 rm_res = subprocess.run(['rm', OutFile])
                 if (rm_res.returncode != 0):  # if rm command returns error
                     print("\nrm {:s}".format(OutFile))
                     print("Return code: {:d}".format(rm_res.returncode))
+            else:
+                print("\nVerifying last download using MD5 checksum ...")
+                with open(OutFile, 'rb') as f:
+                    rf = f.read()
+                    md5sum = md5(rf).hexdigest()
+                    print("MD5 checksum = {:s}".format(md5sum))
 
-        print("\n# Updating log file {:s} and exiting.\n".format(LogFile))
-        with open(LogFile, 'w') as f:
-            f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
+                    # If MD5 do not match the one in the record, delete the bytes downloaded
+                    if (md5sum != log_df.loc[RecordIdx, 'Checksum']):
+                        print("\n***  Checksum does not match MD5 from query record!")
+                        print("***  Incomplete download!")
+                        print("***  Removing file {:s} ...".format(OutFile))
+                        rm_res = subprocess.run(['rm', OutFile])
+                        if (rm_res.returncode != 0):  # if rm command returns error
+                            print("\nrm {:s}".format(OutFile))
+                            print("Return code: {:d}".format(rm_res.returncode))
+                    else:
+                        print("MD5 checksum = {:s}".format(md5sum))
+                        print("Checksum matches MD5 from query record. Updating log dataframe ...")
+                        log_df.loc[RecordIdx, 'Downloaded'] = True
+                        RecordIdx += 1
+
+
+            print("\n# Updating log file {:s} and exiting.\n".format(LogFile))
+            with open(LogFile, 'w') as f:
+                f.write(log_template.format(log_hdr, log_df.to_csv(index=False)))
 
         exit(6)
-    ###  END Handle all exceptions and delete file if incomplete download  ###
+    ###  END Handle all exceptions and delete file is incomplete download  ###
 
 
 ###  END LOOP over records and download  ###
